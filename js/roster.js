@@ -19,50 +19,58 @@ const sortRosterPlayers = (players) => {
         const priorityA = getPositionPriority(a.position);
         const priorityB = getPositionPriority(b.position);
         if (priorityA !== priorityB) return priorityA - priorityB;
+
+        const goalsA = Number(a.goals ?? a.stats?.goals ?? 0);
+        const goalsB = Number(b.goals ?? b.stats?.goals ?? 0);
+        const assistsA = Number(a.assists ?? a.stats?.assists ?? 0);
+        const assistsB = Number(b.assists ?? b.stats?.assists ?? 0);
+
+        if (goalsB !== goalsA) return goalsB - goalsA;
+        if (assistsB !== assistsA) return assistsB - assistsA;
+
         if ((a.number || 0) !== (b.number || 0)) return (a.number || 0) - (b.number || 0);
+
         return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
     });
 };
+
+let rosterListener = null;
 
 async function loadPlayers() {
     const container = document.getElementById('rosterPlayers');
     if (!container) return;
 
+    // 1. Instant local load
     try {
-        if (window.db) {
-            try {
-                const snapshot = await window.db.collection('players').get();
-                if (!snapshot.empty) {
-                    allPlayers = sortRosterPlayers(snapshot.docs
-                        .map(doc => doc.data())
-                        .filter(player => player && player.id != null));
-                }
-            } catch (firebaseError) {
-                console.error('Failed to fetch roster players from Firebase:', firebaseError);
-            }
+        const fetchFn = (window.AppConfig && window.AppConfig.fetchAsset) ? window.AppConfig.fetchAsset : fetch;
+        const res = await fetchFn('data/players.json');
+        if (res.ok) {
+            allPlayers = sortRosterPlayers(await res.json());
+            updateSquadStats(allPlayers);
+            renderPlayers(allPlayers);
         }
+    } catch (e) { console.warn("Initial roster load failed:", e); }
 
-        if (!Array.isArray(allPlayers) || allPlayers.length === 0) {
-            if (typeof getMergedPlayers === 'function') {
-                allPlayers = getMergedPlayers();
-            } else {
-                const localAdmin = localStorage.getItem('adminPlayers');
-                const localAll = localStorage.getItem('allPlayers');
-                allPlayers = localAdmin ? JSON.parse(localAdmin) : (localAll ? JSON.parse(localAll) : basePlayers || []);
+    // 2. Real-time Firebase Sync
+    if (window.db) {
+        if (rosterListener) rosterListener();
+        console.log("[Roster] Subscribing to real-time updates...");
+
+        rosterListener = window.db.collection('players').onSnapshot(snapshot => {
+            if (!snapshot.empty) {
+                const livePlayers = snapshot.docs.map(doc => doc.data());
+                allPlayers = sortRosterPlayers(livePlayers);
+                updateSquadStats(allPlayers);
+
+                // Re-apply current filter
+                const activeTab = document.querySelector('.filter-tab.active');
+                const position = activeTab?.dataset.position || 'all';
+                filterPlayers(position);
             }
-        }
-    } catch (e) {
-        console.error('Error loading player data profiles:', e);
-        allPlayers = basePlayers || [];
+        });
     }
-
-    if (!Array.isArray(allPlayers)) {
-        allPlayers = [];
-    }
-
-    updateSquadStats(allPlayers);
-    renderPlayers(allPlayers);
 }
+
 
 function renderPlayers(playersToRender) {
     const container = document.getElementById('rosterPlayers');
@@ -93,6 +101,7 @@ function buildPlayerCard(player) {
     const card = document.createElement('article');
     const rawPosition = player.position || 'Forward';
     const positionClass = rawPosition.toLowerCase().trim().replace(/\s+/g, '-');
+    const displayName = player.nickname || player.name || 'Unnamed Player';
     
     card.className = `player-card pos-${positionClass}`;
     card.style.animationDelay = `${Math.random() * 0.5}s`;
@@ -117,15 +126,15 @@ function buildPlayerCard(player) {
     card.innerHTML = `
         <div class="player-photo-wrap">
             ${player.playerImage 
-                ? `<img src="${player.playerImage}" alt="${player.name || 'Player'}" loading="lazy" onerror="this.style.display='none'">`
+                ? `<img src="${player.playerImage}" alt="${displayName}" loading="lazy" onerror="this.style.display='none'">`
                 : `<div class="player-photo-placeholder"><i class="fa-solid fa-user"></i></div>`
             }
             <div class="jersey-badge">#${player.number || '—'}</div>
             ${player.isNewSigning ? `<div class="new-badge">New</div>` : ''}
         </div>
         <div class="player-info">
-            <h3 class="player-name">${player.name || 'Unnamed Player'}</h3>
-            ${player.nickname ? `<p class="player-nickname">“${player.nickname}”</p>` : ''}
+            <h3 class="player-name">${displayName}</h3>
+            ${player.nickname && player.name && player.nickname !== player.name ? `<p class="player-nickname">“${player.nickname}”</p>` : ''}
             <div class="position-pill ${pillClass}">${rawPosition}</div>
             <div class="player-stats-row" style="grid-template-columns: repeat(2, 1fr);">
                 <div class="ps-stat">
