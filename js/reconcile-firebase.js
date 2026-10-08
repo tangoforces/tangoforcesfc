@@ -15,6 +15,23 @@
 
 (async function(){
   function norm(s){ return (s||'').toString().toLowerCase().replace(/\s+/g,' ').trim(); }
+  function normalizeNameKey(s){
+    return (s || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  function nameTokens(s){
+    return normalizeNameKey(s)
+      .split(/\s+/)
+      .map(token => token.trim())
+      .filter(Boolean)
+      .filter(token => token.length > 1);
+  }
 
   async function fetchMatchesFromServer(){
     try{
@@ -89,26 +106,14 @@
     function scoreNameMatch(candidateNorm, totalsKey){
       if(!candidateNorm || !totalsKey) return 0;
       if(candidateNorm === totalsKey) return 1.0;
-      if(totalsKey.startsWith(candidateNorm) || candidateNorm.startsWith(totalsKey)) return 0.92;
 
-      const cTokens = tokens(candidateNorm);
-      const kTokens = tokens(totalsKey);
-      // token overlap
-      const setK = new Set(kTokens);
-      const overlap = cTokens.filter(t=> setK.has(t)).length;
-      const tokenScore = overlap / Math.max(kTokens.length, cTokens.length || 1);
-      if(tokenScore > 0) {
-        // boost if last name matches
-        const lastC = cTokens[cTokens.length-1]; const lastK = kTokens[kTokens.length-1];
-        const lastMatch = lastC && lastK && (lastC === lastK);
-        return Math.min(0.9, 0.5 + tokenScore*0.5 + (lastMatch?0.15:0));
-      }
+      const cTokens = nameTokens(candidateNorm);
+      const kTokens = nameTokens(totalsKey);
+      const overlap = cTokens.filter(token => kTokens.includes(token));
 
-      // fallback to edit distance similarity
-      const maxLen = Math.max(candidateNorm.length, totalsKey.length, 1);
-      const dist = editDistance(candidateNorm, totalsKey);
-      const sim = 1 - (dist / maxLen);
-      return sim;
+      if (overlap.length === 0) return 0;
+
+      return 0.85 + (overlap.length / Math.max(cTokens.length, kTokens.length, 1)) * 0.15;
     }
 
     function findTotalsForPlayer(docData){

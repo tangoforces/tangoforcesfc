@@ -7,6 +7,13 @@ let rawPlayers = []; // keep the original player records (from file or firebase)
 let currentPage = 1;
 const rowsPerPage = 8;
 
+const DEFAULT_PLAYER_IMAGE = 'images/player.png';
+
+const getPlayerImageSource = (player = {}) => {
+    const candidate = player.playerImage || player.image || '';
+    return candidate && candidate.trim() ? candidate : DEFAULT_PLAYER_IMAGE;
+};
+
 const abbreviatePosition = (pos = '') => {
     const p = String(pos).toLowerCase();
     if (p.includes('forward') || p.includes('striker')) return 'FWD';
@@ -70,7 +77,24 @@ const updateAdvancedMetrics = () => {
     }
 };
 
-const normalizePlayerMatchKey = (value = '') => String(value).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+const normalizePlayerMatchKey = (value = '') =>
+    String(value)
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+
+const getPlayerNameTokens = (value = '') =>
+    String(value)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(Boolean)
+        .filter(token => token.length > 1);
 
 const playerMatchesReference = (player, candidate) => {
     if (!player || !candidate) return false;
@@ -80,15 +104,18 @@ const playerMatchesReference = (player, candidate) => {
     const candidateKey = normalizePlayerMatchKey(candidate);
 
     if (!candidateKey) return false;
+
     if (playerName === candidateKey || playerNickname === candidateKey) return true;
-    if (playerName.includes(candidateKey) || candidateKey.includes(playerName)) return true;
-    if (playerNickname && (playerNickname.includes(candidateKey) || candidateKey.includes(playerNickname))) return true;
 
-    const playerTokens = [playerName, playerNickname].filter(Boolean).flatMap(value => value.split(/(?=[a-z])/).filter(Boolean));
-    const candidateTokens = candidateKey.split(/(?=[a-z])/).filter(Boolean);
+    const playerTokens = new Set([
+        ...getPlayerNameTokens(player.name),
+        ...getPlayerNameTokens(player.nickname)
+    ]);
+    const candidateTokens = getPlayerNameTokens(candidate);
 
-    return playerTokens.some(token => candidateTokens.includes(token)) ||
-        candidateTokens.some(token => playerTokens.includes(token));
+    if (!playerTokens.size || !candidateTokens.length) return false;
+
+    return candidateTokens.some(token => playerTokens.has(token));
 };
 
 const aggregateStatsFromMatches = (players, matches) => {
@@ -138,8 +165,9 @@ const aggregateStatsFromMatches = (players, matches) => {
         // should not overwrite verified roster/Firebase values.
         const originalGoals = Number(player.stats?.goals ?? player.goals ?? 0);
         const originalAssists = Number(player.stats?.assists ?? player.assists ?? 0);
-        const totalGoals = originalGoals > 0 ? originalGoals : matchGoals;
-        const totalAssists = originalAssists > 0 ? originalAssists : matchAssists;
+        const hasMatchTotals = matchGoals > 0 || matchAssists > 0;
+        const totalGoals = hasMatchTotals ? matchGoals : originalGoals;
+        const totalAssists = hasMatchTotals ? matchAssists : originalAssists;
 
         return {
             ...player,
@@ -331,8 +359,7 @@ const renderStatsTable = () => {
         const goals       = stats.goals       ?? player.goals       ?? 0;
         const assists     = stats.assists     ?? player.assists     ?? 0;
         const cleanSheets = stats.cleanSheets ?? player.cleansheets ?? 0;
-        // Support both playerImage (roster schema) and image (legacy schema)
-        const playerImg   = player.playerImage || player.image || 'images/default-player.png';
+        const playerImg   = getPlayerImageSource(player);
         const displayName = normalizePlayerNameForDisplay(player.nickname || player.name || 'Unknown', statsPlayers);
 
         const row = document.createElement('tr');
@@ -746,7 +773,7 @@ const displayTopScorers = (players) => {
                     </div>
 
                     <img
-                        src="${player.playerImage || player.image || 'images/default-player.png'}"
+                        src="${getPlayerImageSource(player)}"
                         alt="${displayName}"
                         class="top-player-image"
                     >

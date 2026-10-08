@@ -2059,7 +2059,24 @@ const app = {
     // =================================================================
     stats: {
         normalizePlayerKey: function(value) {
-            return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            return String(value || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]/g, '');
+        },
+
+        getPlayerNameTokens: function(value) {
+            return String(value || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s]/g, ' ')
+                .split(/\s+/)
+                .map(token => token.trim())
+                .filter(Boolean)
+                .filter(token => token.length > 1);
         },
 
         matchesPlayerReference: function(player, candidate) {
@@ -2072,14 +2089,16 @@ const app = {
             if (!playerName && !playerNickname && !candidateKey) return false;
             if (!candidateKey) return false;
             if (playerName === candidateKey || playerNickname === candidateKey) return true;
-            if (playerName.includes(candidateKey) || candidateKey.includes(playerName)) return true;
-            if (playerNickname && (playerNickname.includes(candidateKey) || candidateKey.includes(playerNickname))) return true;
 
-            const playerTokens = [playerName, playerNickname].filter(Boolean).flatMap(value => value.split(/(?=[a-z])/).filter(Boolean));
-            const candidateTokens = candidateKey.split(/(?=[a-z])/).filter(Boolean);
+            const playerTokens = new Set([
+                ...this.getPlayerNameTokens(player.name),
+                ...this.getPlayerNameTokens(player.nickname)
+            ]);
+            const candidateTokens = this.getPlayerNameTokens(candidate);
 
-            return playerTokens.some(token => candidateTokens.includes(token)) ||
-                candidateTokens.some(token => playerTokens.includes(token));
+            if (!playerTokens.size || !candidateTokens.length) return false;
+
+            return candidateTokens.some(token => playerTokens.has(token));
         },
 
         normalizeMatchEventForComparison: function(event) {
