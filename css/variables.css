@@ -14,46 +14,56 @@
 
 :root {
     /* ── Background ── */
-    --bg:  #050b14;
-    --bg2: #091321;
+    --bg:  #071421;
+    --bg2: #0c1d2f;
+    --bg3: #12283f;
 
     /* ── Cards / Surfaces ── */
-    --card:       rgba(255, 255, 255, 0.03);
-    --card-hover: rgba(255, 255, 255, 0.06);
+    --card:       rgba(15, 23, 42, 0.72);
+    --card-hover: rgba(15, 23, 42, 0.9);
+    --panel:      rgba(148, 163, 184, 0.06);
 
     /* ── Borders ── */
-    --border:       rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(255, 255, 255, 0.15);
+    --border:       rgba(148, 163, 184, 0.18);
+    --border-hover: rgba(148, 163, 184, 0.32);
 
     /* ── Typography ── */
-    --text:  #ffffff;
-    --muted: #a1a1aa;
+    --text:  #edf6ff;
+    --muted: #a8bbd1;
+    --heading: #f8fbff;
 
     /* ── Brand colours ── */
-    --blue:      #3b82f6;
-    --blue-dark: #2563eb;
-    --blue-glow: rgba(59, 130, 246, 0.4);
+    --blue:      #5aa4ff;
+    --blue-dark: #2d7bf6;
+    --blue-glow: rgba(90, 164, 255, 0.3);
 
-    --green:      #10b981;
-    --green-glow: rgba(16, 185, 129, 0.4);
+    --green:      #1dd1a1;
+    --green-glow: rgba(29, 209, 161, 0.3);
 
-    --red:      #ef4444;
-    --red-glow: rgba(239, 68, 68, 0.4);
+    --red:      #ff5d73;
+    --red-glow: rgba(255, 93, 115, 0.35);
 
-    --gold:      #f59e0b;
-    --gold-glow: rgba(245, 158, 11, 0.4);
+    --gold:      #f6c453;
+    --gold-glow: rgba(246, 196, 83, 0.4);
+
+    --accent: linear-gradient(135deg, var(--blue) 0%, #82d7ff 100%);
+    --accent-soft: rgba(90, 164, 255, 0.12);
 
     /* ── Sizing ── */
-    --header-h:  93px;   /* sticky main-header height */
+    --header-h:  93px;
     --radius-sm: 10px;
     --radius-md: 14px;
     --radius-lg: 20px;
-    --radius-xl: 24px;
+    --radius-xl: 28px;
 }
 
 body {
     font-family: 'Inter', sans-serif;
-    background: var(--bg);
+    background:
+        radial-gradient(circle at top left, rgba(90, 164, 255, 0.12), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(246, 196, 83, 0.08), transparent 25%),
+        var(--bg);
     color: var(--text);
     line-height: 1.6;
+    letter-spacing: -0.01em;
 }

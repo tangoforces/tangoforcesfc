@@ -1,5 +1,5 @@
 /* =========================================
-   STATS PAGE — Harmonized Design Stylesheet
+   STATS PAGE ï¿½ Harmonized Design Stylesheet
    ========================================= */
 
 body {
@@ -230,6 +230,48 @@ body {
 .summary-card:hover {
     transform: translateY(-4px);
     border-color: rgba(255, 255, 255, 0.15);
+}
+
+.analytics-panel {
+    margin-top: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 18px;
+    background: rgba(15, 23, 42, 0.38);
+}
+
+.analytics-panel h3 {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    color: #f8fafc;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.mini-stat {
+    padding: 12px 10px;
+    border-radius: 12px;
+    background: rgba(148, 163, 184, 0.06);
+    text-align: center;
+}
+
+.mini-stat strong {
+    display: block;
+    font-size: 1.3rem;
+    color: #f8fafc;
+    margin-bottom: 4px;
+}
+
+.mini-stat span,
+.analytics-note {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .summary-icon {

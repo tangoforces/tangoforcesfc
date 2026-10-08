@@ -62,6 +62,52 @@ function buildStatBlocks(player) {
     return html;
 }
 
+async function buildPlayerAnalytics(player) {
+    try {
+        const response = await fetch('data/matches.json');
+        if (!response.ok) return '';
+
+        const matches = await response.json();
+        const playerKey = String(player.name || '').trim().toLowerCase();
+        const nicknameKey = String(player.nickname || '').trim().toLowerCase();
+
+        const relevantEvents = matches
+            .filter(match => match && match.status === 'completed' && Array.isArray(match.events))
+            .flatMap(match => match.events.map(event => ({ ...event, matchDate: match.date || match.week || 'Recent' })))
+            .filter(event => {
+                const scorer = String(event.player || '').trim().toLowerCase();
+                const assist = String(event.assist || '').trim().toLowerCase();
+                return scorer === playerKey || scorer === nicknameKey || assist === playerKey || assist === nicknameKey;
+            })
+            .slice(0, 6);
+
+        if (!relevantEvents.length) {
+            return `
+                <div class="analytics-grid">
+                    <div class="mini-stat"><strong>0</strong><span>Goals</span></div>
+                    <div class="mini-stat"><strong>0</strong><span>Assists</span></div>
+                    <div class="mini-stat"><strong>0</strong><span>Recent Impact</span></div>
+                </div>
+            `;
+        }
+
+        const goals = relevantEvents.filter(event => event.type === 'goal' && (String(event.player || '').trim().toLowerCase() === playerKey || String(event.player || '').trim().toLowerCase() === nicknameKey)).length;
+        const assists = relevantEvents.filter(event => event.type === 'goal' && event.assist && (String(event.assist || '').trim().toLowerCase() === playerKey || String(event.assist || '').trim().toLowerCase() === nicknameKey)).length;
+
+        return `
+            <div class="analytics-grid">
+                <div class="mini-stat"><strong>${goals}</strong><span>Goals</span></div>
+                <div class="mini-stat"><strong>${assists}</strong><span>Assists</span></div>
+                <div class="mini-stat"><strong>${relevantEvents.length}</strong><span>Recent Impact</span></div>
+            </div>
+            <div class="analytics-note">Recent contribution summary from completed matches.</div>
+        `;
+    } catch (error) {
+        console.warn('[Player Detail] Analytics failed:', error);
+        return '';
+    }
+}
+
 function renderPlayer(player) {
     const root = document.getElementById('playerDetailRoot');
     if (!root) return;
@@ -73,7 +119,7 @@ function renderPlayer(player) {
 
     const photoHTML = player.playerImage
         ? `<img src="${player.playerImage}" alt="${player.name}"
-               onerror="this.parentElement.innerHTML='<div class=\\'detail-photo-placeholder\\'>👤</div>'">`
+               onerror="this.onerror=null; this.src='images/player.png';">`
         : `<div class="detail-photo-placeholder">👤</div>`;
 
     document.title = `${player.name} — Tango FC`;
@@ -96,9 +142,20 @@ function renderPlayer(player) {
                 <div class="detail-stats-grid">
                     ${buildStatBlocks(player)}
                 </div>
+                <div class="analytics-panel">
+                    <h3>Recent Impact</h3>
+                    <div id="playerAnalyticsContainer">Loading analytics…</div>
+                </div>
             </div>
         </article>
     `;
+
+    buildPlayerAnalytics(player).then(html => {
+        const analyticsContainer = document.getElementById('playerAnalyticsContainer');
+        if (analyticsContainer) {
+            analyticsContainer.innerHTML = html || '<div class="analytics-note">No recent match impact recorded yet.</div>';
+        }
+    });
 }
 
 function renderNotFound() {

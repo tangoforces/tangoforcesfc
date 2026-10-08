@@ -67,3 +67,29 @@ test('aggregateStatsFromMatches keeps Nawaz totals from unrelated goal events', 
   assert.equal(nawaz.goals, 1, 'Nawaz should use the real match-card total instead of the stale saved value');
   assert.equal(nawaz.assists, 1, 'Nawaz should only receive assists recorded in the actual match events');
 });
+
+test('aggregateStatsFromMatches resets stale totals when the match list is the canonical source', () => {
+  const { aggregateStatsFromMatches } = loadStatsApi();
+
+  const players = [
+    { id: 1, name: 'Edrice Mujeyi', nickname: 'Nawaz', goals: 49, assists: 6, position: 'Forward' },
+    { id: 2, name: 'Alious Jamela', nickname: 'Bambo', goals: 4, assists: 2, position: 'Midfielder' }
+  ];
+
+  const matches = [
+    {
+      status: 'completed',
+      events: [
+        { type: 'goal', player: 'Alious Jamela' }
+      ]
+    }
+  ];
+
+  const updated = aggregateStatsFromMatches(players, matches);
+  const nawaz = updated.find(player => player.id === 1);
+  const bambo = updated.find(player => player.id === 2);
+
+  assert.equal(nawaz.goals, 0, 'Players without a recorded match contribution should not keep stale saved totals when match data is present');
+  assert.equal(nawaz.assists, 0, 'Players without a recorded assist should not keep stale saved totals when match data is present');
+  assert.equal(bambo.goals, 1, 'Players with a recorded goal should be counted from the match feed');
+});

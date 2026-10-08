@@ -102,6 +102,7 @@ function buildPlayerCard(player) {
     const rawPosition = player.position || 'Forward';
     const positionClass = rawPosition.toLowerCase().trim().replace(/\s+/g, '-');
     const displayName = player.nickname || player.name || 'Unnamed Player';
+    const playerImageSrc = player.playerImage && player.playerImage.trim() ? player.playerImage : 'images/player.png';
     
     card.className = `player-card pos-${positionClass}`;
     card.style.animationDelay = `${Math.random() * 0.5}s`;
@@ -125,10 +126,7 @@ function buildPlayerCard(player) {
 
     card.innerHTML = `
         <div class="player-photo-wrap">
-            ${player.playerImage 
-                ? `<img src="${player.playerImage}" alt="${displayName}" loading="lazy" onerror="this.style.display='none'">`
-                : `<div class="player-photo-placeholder"><i class="fa-solid fa-user"></i></div>`
-            }
+            <img src="${playerImageSrc}" alt="${displayName}" loading="lazy" onerror="this.onerror=null; this.src='images/player.png';">
             <div class="jersey-badge">#${player.number || '—'}</div>
             ${player.isNewSigning ? `<div class="new-badge">New</div>` : ''}
         </div>

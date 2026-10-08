@@ -302,6 +302,26 @@
                       </h3>
 
                       <div class="exports-grid">
+                        <button class="export-btn" onclick="if (window.reconcileFirestoreFromMatches) { window.reconcileFirestoreFromMatches({ useFirestoreMatches: true, dryRun: true }); } else { alert('Stats repair tool is not available yet.'); }">
+                          <div class="export-btn-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.3-6.7L21 3v7h-7l2.8-2.8A7 7 0 1 0 5 12"/><path d="M11 8h2v5h-2zm0 6h2v2h-2z"/></svg>
+                          </div>
+                          <div class="export-btn-labels">
+                            <span class="export-label-name">Repair Stats</span>
+                            <span class="export-label-file">Preview only</span>
+                          </div>
+                        </button>
+
+                        <button class="export-btn" onclick="if (window.reconcileFirestoreFromMatches) { const confirmed = confirm('This will sync player totals back to the real match-event totals in Firebase. Continue?'); if (confirmed) { window.reconcileFirestoreFromMatches({ useFirestoreMatches: true, dryRun: false }); } } else { alert('Stats repair tool is not available yet.'); }">
+                          <div class="export-btn-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          </div>
+                          <div class="export-btn-labels">
+                            <span class="export-label-name">Sync Corrected Stats</span>
+                            <span class="export-label-file">Write to Firebase</span>
+                          </div>
+                        </button>
+
                         <!-- Matches -->
                         <button class="export-btn" onclick="triggerExport('matches.json')">
                           <div class="export-btn-icon">
@@ -898,6 +918,7 @@
     <script src="js/cache-service.js"></script>
     <script src="js/firebase-init.js"></script>
     <script src="js/players-data.js"></script>
+    <script src="js/reconcile-firebase.js"></script>
     <script src="js/admin.js"></script>
 </body>
 </html>

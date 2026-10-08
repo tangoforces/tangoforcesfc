@@ -121,6 +121,11 @@ const playerMatchesReference = (player, candidate) => {
 const aggregateStatsFromMatches = (players, matches) => {
     const statsMap = {};
 
+    players.forEach(player => {
+        const key = String(player.id || player.name || player.nickname || '');
+        if (key) statsMap[key] = { goals: 0, assists: 0 };
+    });
+
     matches.forEach(match => {
         if (match.status !== 'completed' || !match.events) return;
 
@@ -160,14 +165,11 @@ const aggregateStatsFromMatches = (players, matches) => {
         const matchGoals = Number(matchStats.goals || 0);
         const matchAssists = Number(matchStats.assists || 0);
 
-        // Prefer the recorded player totals when they already exist. Match-event totals are
-        // useful as a fallback, but they can be noisy or inconsistent across legacy data and
-        // should not overwrite verified roster/Firebase values.
         const originalGoals = Number(player.stats?.goals ?? player.goals ?? 0);
         const originalAssists = Number(player.stats?.assists ?? player.assists ?? 0);
-        const hasMatchTotals = matchGoals > 0 || matchAssists > 0;
-        const totalGoals = hasMatchTotals ? matchGoals : originalGoals;
-        const totalAssists = hasMatchTotals ? matchAssists : originalAssists;
+        const useMatchDerivedTotals = Array.isArray(matches) && matches.length > 0 && Object.prototype.hasOwnProperty.call(statsMap, key);
+        const totalGoals = useMatchDerivedTotals ? matchGoals : originalGoals;
+        const totalAssists = useMatchDerivedTotals ? matchAssists : originalAssists;
 
         return {
             ...player,

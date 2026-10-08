@@ -504,10 +504,16 @@ const app = {
 
             const hasActualGoalAssistChanges = app.stats.hasGoalAssistEventChanges(originalMatch?.events, match.events);
             const hasAnyMatchFieldChanges = !originalMatch || JSON.stringify(originalMatch) !== JSON.stringify(match);
+            const validation = app.stats.validateMatchForSave({ match, originalMatch, players: app.state.players || [] });
 
-            if (match.status === 'completed' && (match.homeScore === '' || match.awayScore === '')) {
-                alert('Add both home and away scores before saving a completed match.');
+            if (validation.hasErrors) {
+                alert(validation.summaryText);
                 return;
+            }
+
+            if (validation.hasGoalAssistImpact && hasAnyMatchFieldChanges) {
+                const confirmed = window.confirm(`${validation.summaryText}\n\nProceed to save this match and update player stats?`);
+                if (!confirmed) return;
             }
 
             if (window.db) {
@@ -532,6 +538,15 @@ const app = {
 
             if (match.status === 'completed' && hasActualGoalAssistChanges && hasAnyMatchFieldChanges) {
                 await app.stats.updateAndSync(match.events, originalMatch?.events || []);
+                app.stats.recordAuditEntry('match-save', {
+                    matchId,
+                    homeTeam: match.homeTeam,
+                    awayTeam: match.awayTeam,
+                    status: match.status,
+                    changedGoalAssist: true,
+                    originalEventCount: Array.isArray(originalMatch?.events) ? originalMatch.events.length : 0,
+                    newEventCount: Array.isArray(match.events) ? match.events.length : 0
+                });
             }
 
             e.target.reset();
@@ -2139,6 +2154,60 @@ const app = {
             return JSON.stringify(oldNormalized) !== JSON.stringify(newNormalized);
         },
 
+        validateMatchForSave: function({ match, originalMatch, players = [] }) {
+            const completed = String(match?.status || '').toLowerCase() === 'completed';
+            const summary = {
+                hasErrors: false,
+                hasGoalAssistImpact: false,
+                summaryText: ''
+            };
+
+            if (completed && (match.homeScore === '' || match.awayScore === '' || match.homeScore === null || match.awayScore === null)) {
+                summary.hasErrors = true;
+                summary.summaryText = 'Add both home and away scores before saving a completed match.';
+                return summary;
+            }
+
+            const previousEvents = Array.isArray(originalMatch?.events) ? originalMatch.events : [];
+            const nextEvents = Array.isArray(match?.events) ? match.events : [];
+            const changedGoalAssist = this.hasGoalAssistEventChanges(previousEvents, nextEvents);
+            const playersById = new Map((players || []).map(player => [String(player.id), player]));
+            const goalImpact = [];
+
+            nextEvents.filter(event => event && event.type === 'goal').forEach(event => {
+                if (!event.player) return;
+                const playerMatch = (players || []).find(player => this.matchesPlayerReference(player, event.player));
+                if (playerMatch) {
+                    const playerId = String(playerMatch.id || playerMatch.name || playerMatch.nickname || event.player);
+                    const current = playersById.get(playerId);
+                    const currentGoals = Number((current && (current.stats?.goals ?? current.goals)) || 0);
+                    goalImpact.push({ player: playerMatch.name || event.player, change: '+1 goal', currentGoals });
+                }
+            });
+
+            summary.hasGoalAssistImpact = Boolean(changedGoalAssist || goalImpact.length);
+            summary.summaryText = changedGoalAssist
+                ? `Goal/assist data has changed for this match. Player totals will be recalculated from match events before saving.`
+                : (goalImpact.length ? `This match adds ${goalImpact.length} goal event(s) to player totals.` : 'No goal/assist change detected.');
+
+            return summary;
+        },
+
+        recordAuditEntry: function(type, details) {
+            try {
+                const current = JSON.parse(localStorage.getItem('tangoFC_audit_log') || '[]');
+                const entry = {
+                    type,
+                    timestamp: new Date().toISOString(),
+                    details
+                };
+                current.unshift(entry);
+                localStorage.setItem('tangoFC_audit_log', JSON.stringify(current.slice(0, 25)));
+            } catch (error) {
+                console.warn('[Stats] Failed to save audit log:', error);
+            }
+        },
+
         buildPlayerStatsFromMatches: function(players, matches) {
             const statsMap = {};
 
@@ -2248,6 +2317,10 @@ const app = {
 
                 try {
                     await batch.commit();
+                    this.recordAuditEntry('stats-recalculated', {
+                        totalPlayers: syncedPlayers.length,
+                        updatedAt: new Date().toISOString()
+                    });
                     console.log(`[Stats] Auto-synced ${syncedPlayers.length} players to Firebase.`);
                 } catch (err) {
                     console.error("[Stats] Batch sync failed:", err);
